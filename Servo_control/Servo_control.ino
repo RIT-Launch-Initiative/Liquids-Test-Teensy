@@ -7,6 +7,7 @@
 //Servo-related Values
 PWMServo Chester;
 int currentAng;
+String cmmnd; //command string
 
 //Ethernet stuff
 byte mac[] = {
@@ -15,15 +16,16 @@ byte mac[] = {
 byte ip[] = {10, 10, 10, 75};
 byte dns[] = {10, 10, 10, 1};
 byte gateway[] = {169, 254, 147, 58};
-byte subnet[] = {255, 255, 255, 0};
+byte subnet[] = {255, 255, 0, 0};
 unsigned int localPort = 8080;
 EthernetUDP data;
 char packetBuffer[UDP_TX_PACKET_MAX_SIZE];
 
 //Packet-related values
 uint16_t heartbeatCount = 0; //Amount of heartbeats
-uint16_t beatTimer; //Timer to send out heartbeat packet
-//String heartData = /*Decide what to send as heartbeat*/;
+uint16_t beatTimer = 0; //Timer to send out heartbeat packet
+String heartData = "Joemama";
+String heartCheck; //like da command string, but for the heartbeat
 int dataLength;
 //--------------------------------------------------------------
 // Arduino setup for servo comms and ethernet data reading
@@ -39,15 +41,15 @@ void setup() {
   }
   
 //attach the servo, named Chester
-  //Chester.attach(3);
+  Chester.attach(3);
 
 //Begin UDP connection
   data.begin(localPort);
+  delay(27000);
 }
 //--------------------------------------------------------------
 // Main loop
 void loop() {
-    //currentAng = Chester.read();
     //Check for packet------------------
     dataLength = data.parsePacket();
     if (dataLength){
@@ -69,31 +71,71 @@ void loop() {
       data.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
       Serial.println("Contents:");
       Serial.println(packetBuffer);
+      cmmnd = packetBuffer;
+      if(cmmnd == "Teensy balls"){
+        //Chester.write(-45);
+        //delay(100);
+        //currentAng = Chester.read();
+        data.beginPacket(data.remoteIP(), data.remotePort());
+        //data.write("%d", currentAng);
+        data.write("Will do one");
+        data.endPacket();
+      } 
 
-      data.beginPacket(data.remoteIP(), data.remotePort());
-      data.write("acknowldeged");
-      data.endPacket();
-
-      //beatTimer++;
-      //if(beatTimer >= /*Some amount of seconds*/){
-        //Write heartbeat packet and send it
-      //  delay(/*Scary time for heartbeat retrieveal*/)
-        //Check the data sent back and compare to what was sent
-      //  data.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
-      //  if(packetBuffer == heartData){
-      //    heartbeatCount++;
-      //  }else{ 
-      //    if(currentAng != 0){ //Check if open or closed
-      //      Chester.write(0);
-            //Wait indefinitely, will only do something
-            //once turned off, then on again.
-      //      for(;;){}
-      //    }else{
-      //      for(;;){}
-      //    }
-      //  }
-      //}
+      if(cmmnd == "Teensy"){
+        //Chester.write(45);
+        //delay(100);
+        //currentAng = Chester.read();
+        data.beginPacket(data.remoteIP(), data.remotePort());
+        //data.write("%d", currentAng);
+        data.write("Will do two");
+        data.endPacket();
+      }
+      for(int k = 0; k < 24; k++){
+        packetBuffer[k] = '\u0000';
+      }
     }
+      //HEARTBEAT, BABY
+    beatTimer++; //increment timer for heartbeat check
+    if(beatTimer >= 100){
+      //Clear Packet buffer
+      for(int k = 0; k < 24; k++){
+      packetBuffer[k] = '\u0000';
+      }
+      //Write heartbeat packet and send it
+      data.beginPacket(data.remoteIP(), data.remotePort());
+      data.write("Joemama");
+      data.endPacket();
+      delay(2000);
+      //Check the data sent back and compare to what was sent
+      dataLength = data.parsePacket();
+      data.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
+      heartCheck = packetBuffer;
+      if(heartCheck == heartData){
+        heartbeatCount++;
+      }else{ 
+        if(currentAng != 0){ //Check if open or closed
+          //Chester.write(0);
+          data.beginPacket(data.remoteIP(), data.remotePort());
+          data.write("FUCK CLOSE!");
+          data.endPacket();
+          //Wait indefinitely, will only do something
+          //once turned off, then on again.
+          for(;;){}
+        }else{
+          data.beginPacket(data.remoteIP(), data.remotePort());
+          data.write("Oops");
+          data.endPacket();
+          for(;;){}
+        }
+      }
+      beatTimer = 0;
+      for(int k = 0; k < 24; k++){
+      packetBuffer[k] = '\u0000';
+      }
+    }
+    
+    
     //end packet check-----------------
   delay(10);
 }
