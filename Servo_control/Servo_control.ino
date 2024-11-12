@@ -8,7 +8,7 @@
 PWMServo Chester;
 int currentAng;
 String cmmnd; //command string
-bool isOpen = false; //Boolean to safeguard against repeat commands
+uint8_t isOpen = 0; //Boolean to safeguard against repeat commands
 
 //Ethernet stuff
 byte mac[] = {
@@ -74,34 +74,36 @@ void loop() {
       cmmnd = packetBuffer;
       if(cmmnd == "Close"){
         if(isOpen){
-          //Chester.write(-45);
-          //delay(100);
-          //currentAng = Chester.read();
+          Chester.writeMicroseconds(1500);
+          delay(1000);
+          Chester.writeMicroseconds(1500);
+          currentAng = Chester.read();
           data.beginPacket(data.remoteIP(), data.remotePort());
-          //data.write("%d", currentAng);
-          data.write("Will do one");
+          //data.writeMicroseconds("%d", currentAng);
+          data.writeMicroseconds("Closing");
           data.endPacket();
-          isOpen = false;
+          isOpen = 0;
         }else{
           data.beginPacket(data.remoteIP(), data.remotePort());
-          data.write("Already Closed");
+          data.writeMicroseconds("Already Closed");
           data.endPacket();
         }
       } 
 
       if(cmmnd == "Open"){
         if(!isOpen){
-        //Chester.write(45);
-        //delay(100);
-        //currentAng = Chester.read();
+        Chester.writeMicroseconds(1500);
+        delay(1000);
+        Chester.writeMicroseconds(1500);
+        currentAng = Chester.read();
           data.beginPacket(data.remoteIP(), data.remotePort());
-        //data.write("%d", currentAng);
-          data.write("Will do two");
+        //data.writeMicroseconds("%d", currentAng);
+          data.writeMicroseconds("Opening");
           data.endPacket();
-          isOpen = true;
+          isOpen = 1;
         }else{
-          data.beginPacket(data.remoteIP(), data.remotePort);
-          data.write("Already Open");
+          data.beginPacket(data.remoteIP(), data.remotePort());
+          data.writeMicroseconds("Already Open");
           data.endPacket();
         }
       }
@@ -111,14 +113,14 @@ void loop() {
     }
       //HEARTBEAT, BABY
     beatTimer++; //increment timer for heartbeat check
-    if(beatTimer >= 100){
+    if(beatTimer >= 10000){
       //Clear Packet buffer
       for(int k = 0; k < 24; k++){
       packetBuffer[k] = '\u0000';
       }
-      //Write heartbeat packet and send it
+      //writeMicroseconds heartbeat packet and send it
       data.beginPacket(data.remoteIP(), data.remotePort());
-      data.write("Joemama");
+      data.writeMicroseconds("Joemama");
       data.endPacket();
       delay(100);
       //Check the data sent back and compare to what was sent
@@ -128,19 +130,19 @@ void loop() {
       if(heartCheck == heartData){
         heartbeatCount++;
       }else{ 
-        if(currentAng != 0){ //Check if open or closed
-          //Chester.write(-45); //If it's not closed, it'll be at 45 degrees
+        if(isOpen){ //Check if open or closed
+          //Chester.writeMicroseconds(-45); //If it's not closed, it'll be at 45 degrees
           data.beginPacket(data.remoteIP(), data.remotePort());
-          data.write("close pls");
+          data.writeMicroseconds("close pls");
           data.endPacket();
           //Wait indefinitely, will only do something
           //once turned off, then on again.
-          for(;;){}
+         // for(;;){}
         }else{
           data.beginPacket(data.remoteIP(), data.remotePort());
-          data.write("Oops");
+          data.writeMicroseconds("Oops");
           data.endPacket();
-          for(;;){}
+         // for(;;){}
         }
       }
       beatTimer = 0;
