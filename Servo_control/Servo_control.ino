@@ -6,8 +6,8 @@
 //Declare any globally important values
 //Servo-related Values
 PWMServo Chester;
-int currentAng;
-String cmmnd; //command string
+int currentAng; //Integer to 
+String cmmnd; //String to hold sent command keyword
 uint8_t isOpen = 0; //"Boolean" to safeguard against repeat commands
 
 //Ethernet stuff
