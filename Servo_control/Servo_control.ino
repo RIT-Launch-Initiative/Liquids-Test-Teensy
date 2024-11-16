@@ -9,7 +9,8 @@ PWMServo Chester;
 int currentAng; //Integer to 
 String cmmnd; //String to hold sent command keyword
 uint8_t isOpen = 0; //"Boolean" to safeguard against repeat commands
-
+void ServoManip(char pinNum); //Function to dymanically choose which servo to
+                              //write to
 //Ethernet stuff
 byte mac[] = {
   0x04, 0xE9, 0xE5, 0x11, 0xEF, 0x6E      // MAC address of the Teensy
@@ -64,9 +65,9 @@ void loop() {
       IPAddress remote = data.remoteIP();       //. address of the sending 
       for (int i =0; i < 4; i++){               //. device
         Serial.print(remote[i], DEC);           //. 
-        if (i < 3){                             //.
-          Serial.print(".");                    //.
-        }                                       //.
+        if (i < 3){                             //. This is printed to the 
+          Serial.print(".");                    //. serial for debugging
+        }                                       //. purposes
       }                                         //.
       Serial.print(", port ");                  //.
       Serial.println(data.remotePort());        //.
@@ -118,8 +119,29 @@ void loop() {
   delay(10);
 }
 
-\\Begin Functions
-void  heartBeat(void){
+//Begin Functions--------------------------------------------------------------
+void ServoManip(char pinNum){
+  switch(pinNum){
+    case '3':
+      if(isOpen){
+        Chester.writeMicroseconds(2250);
+      }else{
+        Chester.writeMicroseconds(1500);
+      }
+      Chester.attach(3);
+    break;
+    case '4':
+    Chester.attach(4);
+    break;
+    case '5':
+    Chester.attach(5);
+    break;
+    default:
+    
+  }
+}
+//-------------------------------------------------------
+void heartBeat(void){
   //HEARTBEAT, BABY
   beatTimer++; //increment timer for heartbeat check
   if(beatTimer >= 10000){
