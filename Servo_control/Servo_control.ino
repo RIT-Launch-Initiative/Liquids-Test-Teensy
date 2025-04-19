@@ -2,6 +2,7 @@
 #include <SPI.h>
 #include <NativeEthernet.h>
 #include <NativeEthernetUdp.h>
+
 //---------------------------------------------------------------
 //Declare any function methods
 //---------------------------------------------------------------
@@ -9,6 +10,10 @@
 void ServoManip(uint8_t pinNum);//Function to dymanically choose which servo to
                                 //write to
 uint8_t ChesterManip(uint8_t pos); //Function to change servo position
+
+//State machine functions
+void ChangeState(uint8_t nextState);
+void UpdateLightStatus(uint8_t lightMode);
 
 //Heartbeat methods
 void HeartBeat(void);
@@ -41,6 +46,19 @@ uint8_t heartData = 0x01; //Arbitrary string to use for a heartbeat packet
 uint8_t heartCheck; //like da command string, but for the heartbeat
 int dataLength;
 
+// STATES and related vars
+uint8_t CURRENT_STATE = 0x00;
+uint8_t CURRENT_PERMISSION_BITS = 0x00;
+//permission bits as follows for controlled components, and should be validated as active or locked before actuating:
+/*
+ * 0x00 propellant valve
+ * 0x01 fuel bottle valve
+ * 0x02 fuel bottle quick disconnect
+ * 0x03 oxidizer bottle valve
+ * 0x04 oxidizer bottle quick disconnect
+ * 0x05 e-match
+ */
+
 //--------------------------------------------------------------
 // Arduino setup for servo comms and ethernet data reading
 
@@ -62,6 +80,7 @@ void setup() {
   Chester.attach(10, 0, 0);
 
 //Begin UDP connection
+//TODO: replace with link check?
   data.begin(localPort);
   delay(27000); //May or may not be needed,
                 //was used to wait for an actual connection to test computer
@@ -71,6 +90,7 @@ void setup() {
 void loop() {
     //Check for packet------------------
     dataLength = data.parsePacket(); //Get length of incoming packet
+    // Serial.println("looping...");
     if (dataLength){ //Check for incoming packet
       data.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE); //Put incoming packet into the buffer
       Serial.print("Received packet of size "); //.
@@ -89,6 +109,7 @@ void loop() {
       // read the packet into packetBuffer
       data.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
       Serial.println("Contents:"); //Put the contents of the buffer into
+      //TODO: check warning here
       Serial.println((char)packetBuffer);//serial monitor. This is for debug
        
       cmmnd = packetBuffer[1]; //Command byte is put into var
@@ -103,6 +124,7 @@ void loop() {
     HeartBeat(); //Call heartbeat function
   delay(10);
 }
+
 
 //Begin Functions--------------------------------------------------------------
 void ServoManip(uint8_t pinNum){
@@ -121,6 +143,7 @@ void ServoManip(uint8_t pinNum){
       ChesterManip(isOpen & 0x04);
       break;
     default:
+      //default same as case 1. consider combining/refactoring to prevent code duplication and aid in readability.
       Chester.attach(3, 500, 2500);
       ChesterManip(isOpen & 0x01);
   }
@@ -191,9 +214,11 @@ uint8_t ChesterManip(uint8_t pos){
 
 //-------------------------------------------------------
 void HeartBeat(void){
+  // Serial.println("heartbeat function");
   //HEARTBEAT, BABY
   beatTimer++; //increment timer for heartbeat check
   if(beatTimer >= 10000){
+    Serial.println("beat timer over 10000");
     //Clear Packet buffer
     for(int k = 0; k < 24; k++){
     packetBuffer[k] = '\u0000';
@@ -203,10 +228,14 @@ void HeartBeat(void){
     data.write("%d", heartData);
     data.endPacket();
     delay(100);
+    Serial.println("wrote packet containing data:");
+    Serial.println(heartData);
     //Check the data sent back and compare to what was sent
     dataLength = data.parsePacket();
     data.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
     heartCheck = packetBuffer;
+    Serial.println("read packet containing data:");
+    Serial.println(heartCheck);
     if(heartCheck == heartData){
       heartbeatCount++;
     }else{ 
@@ -232,4 +261,80 @@ void FailedCheck(){
     //Wait indefinitely, will only do something
     //once turned off, then on again.
     return;
+}
+
+/**
+ * function to change state based on recieved command
+ * control permission bits and light status will be updated accordingly
+ * determination of type of command packed recieved (state related or other) to be done by calling function
+ */
+void ChangeState(uint8_t nextState){
+  if(nextState-1 != CURRENT_STATE){//reject command and do no operation if state is not the next one in sequence
+    return;
+  }
+
+  //TODO: determine any other cases for rejection of command to move to next stage
+
+  switch(nextState){
+    case 1:
+      CURRENT_PERMISSION_BITS = 1;//propellent valve active
+      UpdateLightStatus(1);
+      break;
+    case 2:
+      CURRENT_PERMISSION_BITS = 3;//fuel bottle valve active
+      UpdateLightStatus(3);
+      break;
+    case 3:
+      CURRENT_PERMISSION_BITS = 4;//fuel bottle quick disconnect active
+      UpdateLightStatus(3);
+      break;
+    case 4:
+      CURRENT_PERMISSION_BITS = 8;//oxidizer bottle valve active
+      UpdateLightStatus(3);
+      break;
+    case 5:
+      CURRENT_PERMISSION_BITS = 16;//oxidizer bottle quick disconnect active
+      UpdateLightStatus(3);
+      break;
+    case 6:
+      CURRENT_PERMISSION_BITS = 33;//e-match and propellant valve active
+      UpdateLightStatus(3);
+      break;
+    case 7:
+      CURRENT_PERMISSION_BITS = 0;//no controls active
+      UpdateLightStatus(3);
+      break;
+    default:
+      CURRENT_PERMISSION_BITS = 0;
+      UpdateLightStatus(0);
+      break;
+  }
+}
+
+/**
+ * function to set correct outputs for light control
+ * 1 indicates green, 2 indicates yellow, 3 indicates red. 0 or other values indicate a fault or non-state such as at startup
+ */
+void UpdateLightStatus(uint8_t lightMode){
+  switch(lightMode){
+    case 1://green light only
+      digitalWrite(41, LOW);
+      digitalWrite(40, LOW);
+      digitalWrite(39, HIGH);
+      break;
+    case 2://yellow light only
+      digitalWrite(41, LOW);
+      digitalWrite(40, HIGH);
+      digitalWrite(39, LOW);
+    case 3://red light only
+      digitalWrite(41, HIGH);
+      digitalWrite(40, LOW);
+      digitalWrite(39, LOW);
+      break;
+    default://fault or non-state, all lights on
+      digitalWrite(41, HIGH);
+      digitalWrite(40, HIGH);
+      digitalWrite(39, HIGH);
+      break;
+  }
 }
