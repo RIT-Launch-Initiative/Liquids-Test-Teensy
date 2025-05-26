@@ -7,9 +7,10 @@
 //Declare any function methods
 //---------------------------------------------------------------
 //Servo-related methods
-void ServoManip(uint8_t pinNum);//Function to dymanically choose which servo to
-                                //write to
+void ActuatorManip(uint8_t pinNum);//Function to dymanically choose which actuator to write to
 uint8_t ChesterManip(uint8_t pos); //Function to change servo position
+void PinManip(uint8_t pos); //Function to change servo position
+
 
 //State machine functions
 void ChangeState(uint8_t nextState);
@@ -24,17 +25,17 @@ void FailedCheck();
 //Servo-related Values
 PWMServo Chester; 
 uint8_t cmmnd; //8 bits to hold recieved command keyword
-uint8_t servoNum;//8 bits to hold which servo is being referenced
-uint8_t isOpen; //8 bits to keep track of which servo is open
+uint8_t actuatorNum;//8 bits to hold which actuator is being referenced
+uint8_t isOpen; //8 bits to keep track of which actuator is open
 
 //Ethernet stuff
 byte mac[] = {
   0x04, 0xE9, 0xE5, 0x11, 0xEF, 0x6E      // MAC address of the Teensy
 };
-byte ip[] = {10, 10, 10, 75}; //Set the Teensy's IP address
-byte dns[] = {10, 10, 10, 1};
-byte gateway[] = {169, 254, 147, 58}; //This will be the ip the ground station sends from
-byte subnet[] = {255, 255, 0, 0};
+byte ip[] = {10, 2, 1, 75}; //Set the Teensy's IP address
+byte dns[] = {10, 2, 1, 1};
+byte gateway[] = {10, 2, 1, 1}; //This will be the ip the ground station sends from
+byte subnet[] = {255, 255, 255, 0};
 unsigned int localPort = 8080; //Port the Teensy listens on 
 EthernetUDP data; //Initialise the UDP object
 uint8_t packetBuffer[UDP_TX_PACKET_MAX_SIZE]; //This is the packet buffer to take incoming packets
@@ -51,12 +52,12 @@ uint8_t CURRENT_STATE = 0x00;
 uint8_t CURRENT_PERMISSION_BITS = 0x00;
 //permission bits as follows for controlled components, and should be validated as active or locked before actuating:
 /*
- * 0x00 propellant valve
- * 0x01 fuel bottle valve
- * 0x02 fuel bottle quick disconnect
+ * 0x01 propellant valve
+ * 0x02 fuel bottle valve
  * 0x03 oxidizer bottle valve
- * 0x04 oxidizer bottle quick disconnect
- * 0x05 e-match
+ * 0x04 fuel bottle quick disconnect
+ * 0x05 oxidizer bottle quick disconnect
+ * 0x06 e-match
  */
 
 //--------------------------------------------------------------
@@ -80,7 +81,7 @@ void setup() {
   Chester.attach(10, 0, 0);
 
 //Begin UDP connection
-//TODO: replace with link check?
+//TODO: replace delay with link check?
   data.begin(localPort);
   delay(27000); //May or may not be needed,
                 //was used to wait for an actual connection to test computer
@@ -90,7 +91,6 @@ void setup() {
 void loop() {
     //Check for packet------------------
     dataLength = data.parsePacket(); //Get length of incoming packet
-    // Serial.println("looping...");
     if (dataLength){ //Check for incoming packet
       data.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE); //Put incoming packet into the buffer
       Serial.print("Received packet of size "); //.
@@ -109,12 +109,12 @@ void loop() {
       // read the packet into packetBuffer
       data.read(packetBuffer, UDP_TX_PACKET_MAX_SIZE);
       Serial.println("Contents:"); //Put the contents of the buffer into
-      //TODO: check warning here
+      //TODO: check warning here. may be fine if just for debug
       Serial.println((char)packetBuffer);//serial monitor. This is for debug
        
       cmmnd = packetBuffer[1]; //Command byte is put into var
-      servoNum = packetBuffer[0]; //Servo number byte as well
-      ServoManip(servoNum); //Manipulate the corresponding servo
+      actuatorNum = packetBuffer[0]; //Servo number byte as well
+      ActuatorManip(actuatorNum); //Manipulate the corresponding actuator
       for(int k = 0; k < 24; k++){ //Clear the packet buffer
         packetBuffer[k] = '\u0000';
       }
@@ -127,21 +127,29 @@ void loop() {
 
 
 //Begin Functions--------------------------------------------------------------
-void ServoManip(uint8_t pinNum){
-  Chester.write(90); //this write makes sure that attaching the servo sets it to neutral
-  switch(pinNum){ //Switch to determine which servo to attach
+void ActuatorManip(uint8_t actuatorNum){
+  if(actuatorNum <4){//actuators 1, 2, and 3 represent servos
+    Chester.write(90); //this write makes sure that attaching the servo sets it to neutral
+  }
+  switch(actuatorNum){ //Switch to determine which actuator to attach
     case 1:
       Chester.attach(3, 500, 2500);
       ChesterManip(isOpen & 0x01);
       break;
     case 2:
-     Chester.attach(4, 500, 2500);
-     ChesterManip(isOpen & 0x02);
+      Chester.attach(4, 500, 2500);
+      ChesterManip(isOpen & 0x02);
       break;
     case 3:
       Chester.attach(5, 500, 2500);
       ChesterManip(isOpen & 0x04);
       break;
+    case 4:
+      PinManip(isOpen & 0x08, actuatorNum);
+    case 5:
+      PinManip(isOpen & 0x10, actuatorNum);
+    case 6:
+      PinManip(isOpen & 0x20, actuatorNum);
     default:
       //default same as case 1. consider combining/refactoring to prevent code duplication and aid in readability.
       Chester.attach(3, 500, 2500);
@@ -149,6 +157,40 @@ void ServoManip(uint8_t pinNum){
   }
   //Chester.detach();
   return;
+}
+
+void PinManip(uint8_t pos, uint8_t actuatorNum){
+  if(cmnd == 0x10){//check that command is to "open" / activate
+    if(!pos){//pos should be 00000000 if the corresponding actuator is not yet activated
+      switch(actuatorNum){
+        //TODO: determine how and when these outputs will be reset/toggled back off. this could be done with a timer, off command, or as part of the state system such that pin 6 turns off when pin 7 goes on.
+        case 4:
+          //write pin high and set the corresponding bit high
+          digitalWrite(6, HIGH);
+          isOpen &= ~(0x08);
+        case 5:
+          digitalWrite(7, HIGH);
+          isOpen &= ~(0x10);
+        case 6:
+          digitalWrite(6, HIGH);
+          isOpen &= ~(0x20);
+        case default:
+          data.beginPacket(data.remoteIP(), data.remotePort());
+          data.write("invalid case encountered in PinManip");
+          data.endPacket();
+      }
+    }
+    else{
+      data.beginPacket(data.remoteIP(), data.remotePort());
+      data.write("commanded Pin already active");
+      data.endPacket();
+    }
+  }
+  else{
+    data.beginPacket(data.remoteIP(), data.remotePort());
+    data.write("invalid command in PinManip");
+    data.endPacket();
+  }
 }
 
 uint8_t ChesterManip(uint8_t pos){ 
@@ -274,30 +316,31 @@ void ChangeState(uint8_t nextState){
   }
 
   //TODO: determine any other cases for rejection of command to move to next stage
+  //TODO: verify these bits against the chart, if this state system actually ends up being used.
 
   switch(nextState){
     case 1:
-      CURRENT_PERMISSION_BITS = 1;//propellent valve active
+      CURRENT_PERMISSION_BITS = 2;//propellent valve active 00000010
       UpdateLightStatus(1);
       break;
     case 2:
-      CURRENT_PERMISSION_BITS = 3;//fuel bottle valve active
+      CURRENT_PERMISSION_BITS = 6;//fuel bottle valve active 00000110
       UpdateLightStatus(3);
       break;
     case 3:
-      CURRENT_PERMISSION_BITS = 4;//fuel bottle quick disconnect active
+      CURRENT_PERMISSION_BITS = 16;//fuel bottle quick disconnect active
       UpdateLightStatus(3);
       break;
     case 4:
-      CURRENT_PERMISSION_BITS = 8;//oxidizer bottle valve active
+      CURRENT_PERMISSION_BITS = 10;//oxidizer bottle valve active 00001010
       UpdateLightStatus(3);
       break;
     case 5:
-      CURRENT_PERMISSION_BITS = 16;//oxidizer bottle quick disconnect active
+      CURRENT_PERMISSION_BITS = 32;//oxidizer bottle quick disconnect active
       UpdateLightStatus(3);
       break;
     case 6:
-      CURRENT_PERMISSION_BITS = 33;//e-match and propellant valve active
+      CURRENT_PERMISSION_BITS = 65;//e-match and propellant valve active
       UpdateLightStatus(3);
       break;
     case 7:
