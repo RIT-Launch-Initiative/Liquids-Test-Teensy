@@ -160,7 +160,7 @@ void ActuatorManip(uint8_t actuatorNum){
 }
 
 void PinManip(uint8_t pos, uint8_t actuatorNum){
-  if(cmnd == 0x10){//check that command is to "open" / activate
+  if(cmmnd == 0x10){//check that command is to "open" / activate
     if(!pos){//pos should be 00000000 if the corresponding actuator is not yet activated
       switch(actuatorNum){
         //TODO: determine how and when these outputs will be reset/toggled back off. this could be done with a timer, off command, or as part of the state system such that pin 6 turns off when pin 7 goes on.
@@ -174,7 +174,7 @@ void PinManip(uint8_t pos, uint8_t actuatorNum){
         case 6:
           digitalWrite(6, HIGH);
           isOpen &= ~(0x20);
-        case default:
+        default:
           data.beginPacket(data.remoteIP(), data.remotePort());
           data.write("invalid case encountered in PinManip");
           data.endPacket();
