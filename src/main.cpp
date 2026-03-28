@@ -18,60 +18,77 @@ void setup(){
     servoMainValve.init();
 }
 
+int loops = 0;
 void loop(){
+    loops++;
     String message = readPacket();
+    if(message.length() > 0){
+      sendPacket("Recieved packet with content: " + message);
 
-    if(message == ""){
-        Serial.println("no response recieved");
-    }
-    //quick disconnects
-    else if(message == "OXDISCONNECT"){
-      OxQD.disconnectQD();
-    }
-    else if(message == "IPADISCONNECT"){
-      IPAQD.disconnectQD();
-    }
-    //oxygen controls
-    else if(message == "OXOPEN"){
-      servoOxValve.openValve();
-    }
-    else if(message == "OXCLOSE"){
-      servoOxValve.closeValve();
-    }
-    //IPA controls
-    else if(message == "IPAOPEN"){
-      servoIPAValve.openValve();
-    }
-    else if(message == "IPACLOSE"){
-      servoIPAValve.closeValve();
-    }
-    //main valve controls
-    else if(message == "MAINOPEN"){
-      servoMainValve.openValve();
-    }
-    else if(message == "MAINCLOSE"){
-      servoMainValve.closeValve();
-    }
-    //LightTree
-    else if(message == "HONK"){
-        lightTree.shortHorn();
-    }
-    //other commands
-    else if(message == "PING"){
-      sendPacket("PONG");
-    }
-    else if(message == "FAULT"){
-      lightTree.setLightRedFlash(true);
-      lightTree.shortHorn();
-    }
-    //Igno
-    else if(message == "IGNITE"){
-      ignitor.ignite();
-    }
+        CMD command = getCMD(message);
+        if(command == CMD::SPECIAL){
+            Serial.println("special command recieved and processed by netcomm");
+        }
+        else if(command == CMD::STATUS){
+            Serial.println("status requested");
+            //TODO: get status from actuators, send packet
+        }
+        //quick disconnects
+        else if(command == CMD::OXDISCONNECT){
+          OxQD.disconnectQD();
+        }
+        else if(command == CMD::IPADISCONNECT){
+          IPAQD.disconnectQD();
+        }
+        //oxygen controls
+        else if(command == CMD::OXOPEN){
+          servoOxValve.openValve();
+        }
+        else if(command == CMD::OXCLOSE){
+          servoOxValve.closeValve();
+        }
+        //IPA controls
+        else if(command == CMD::IPAOPEN){
+          servoIPAValve.openValve();
+        }
+        else if(command == CMD::IPACLOSE){
+          servoIPAValve.closeValve();
+        }
+        //main valve controls
+        else if(command == CMD::MAINOPEN){
+          servoMainValve.openValve();
+        }
+        else if(command == CMD::MAINCLOSE){
+          servoMainValve.closeValve();
+        }
+        //LightTree
+        else if(command == CMD::HONK){
+            lightTree.longHorn();
+        }
+        //stage commands
+        else if(command == CMD::FAULT){
+          // lightTree.setLightRedFlash(true);
+          lightTree.shortHorn();
+        }
+        else if(command == CMD::NEXTSTAGE){
+            Serial.println("Next stage intiaited");
+            lightTree.setLightGreen();
+            delay(1000);
+            lightTree.setLightYellow();
+            delay(1000);
+            lightTree.setLightRed();
+            delay(1000);
+            lightTree.setNoLights();
+        }
+        else if(command == CMD::BACKSTAGE){
+            Serial.println("previous stage intiaited");
+        }
+        //Ignitor
+        else if(command == CMD::IGNITE){
+          ignitor.ignite();
+        }
 
-    // if(message.length() > 0){
-    //   sendPacket("Recieved packet with content: " + message);
-    // }
-    delay(1000);
-    //Serial.println("loop");
+        delay(50);
+        }
 }
+//TODO: use main loop to check flags for actuator loop and toggle off without any delays or while true

@@ -1,5 +1,6 @@
-#include <NativeEthernet.h>
-#include <NativeEthernetUdp.h>
+// #include <NativeEthernet.h>
+// #include <NativeEthernetUdp.h>
+#include <QNEthernet.h>
 
 enum class CMD{
     NONE,
@@ -15,13 +16,15 @@ enum class CMD{
     MAINOPEN,
     MAINCLOSE,
     IGNITE,
-    HONK
+    HONK,
+    NEXTSTAGE,
+    BACKSTAGE
 };
 
 bool initialiseEthernet();
 void setStatus(String newStatus);
 
-CMD getCMD();
+CMD getCMD(String packet);
 String readPacket();
 void sendPacket(String response);
 void setStatus(String newStatus);

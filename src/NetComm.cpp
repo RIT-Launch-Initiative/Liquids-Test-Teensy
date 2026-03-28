@@ -1,18 +1,19 @@
 #include "NetComm.h"
 #include <Arduino.h>
+using namespace qindesign::network;
 
 
 // ---------------------------
 // Network configuration
 // ---------------------------
-byte teensyMAC[6] = { 0x04, 0xE9, 0xE5, 0x11, 0xEF, 0x6E };   // Use a valid MAC
-IPAddress teensyIP(10, 10, 10, 69);                         // Change for your LAN
+byte teensyMAC[6] = { 0x04, 0xE9, 0xE5, 0x11, 0xEF, 0x6E };
+IPAddress teensyIP(10, 10, 10, 69); //10.10.10.69 expected for launch setup
 IPAddress blankIP(0,0,0,0);
 IPAddress controlIP;
 IPAddress lastIP;
-unsigned int localPort = 8888;                        // Port to listen on
+unsigned int localPort = 8888;
 
-EthernetUDP Udp;
+EthernetUDP udp;
 String currentStatus = "";
 
 
@@ -21,25 +22,30 @@ String currentStatus = "";
  * Initialise network communication
  */
 bool initialiseEthernet(){
-    Serial.println("Initializing Ethernet...");
+    Serial.println("Initialising Ethernet...");
 
     // if (Ethernet.begin(mac) == 0) {
     //     Serial.println("DHCP failed, using static IP.");
     //     Ethernet.begin(mac, ip);
     // }
-    Ethernet.begin(teensyMAC, teensyIP);
+    Ethernet.begin();
+    Ethernet.setLocalIP(teensyIP);
+    Ethernet.setSubnetMask(IPAddress(255,255,255,0));
+    Ethernet.setGatewayIP(IPAddress(10,10,10,1));//unknown what test setup gateway will be
+    udp.begin(localPort);
     controlIP = IPAddress(0, 0, 0, 0);//default control IP
 
     Serial.println("IP Address: ");
     Serial.println(Ethernet.localIP());
-
-    Udp.begin(localPort);
+    //Serial.println("MAC Address: ");
+    // Serial.println(Ethernet.macAddress());
     Serial.printf("UDP listening on port %d\n", localPort);
     return true;
 }
 
-CMD getCMD(){
-    String packet = readPacket();
+CMD getCMD(String packet){
+    // String packet = readPacket();
+    Serial.println("got a packet...");
     if(packet == ""){
         return CMD::NONE;
     }
@@ -69,7 +75,7 @@ CMD getCMD(){
         return CMD::SPECIAL;
     }
     else if(packet == "VERSION"){
-        sendPacket("NITRON GROUNDSTATION 0.9.0");
+        sendPacket("NITRON GROUNDSTATION 0.9.1");
         return CMD::SPECIAL;
     }
     else if(packet == "STATUS"){
@@ -122,6 +128,14 @@ CMD getCMD(){
                 sendPacket("HONK ACKNOWLEDGED");
                 return CMD::HONK;
             }
+            else if(packet == "NEXTSTAGE"){
+                sendPacket("NEXTSTAGE ACKNOWLEDGED");
+                return CMD::NEXTSTAGE;
+            }
+            else if(packet == "BACKSTAGE"){
+                sendPacket("BACKSTAGE ACKNOWLEDGED");
+                return CMD::BACKSTAGE;
+            }
         }
         else{
             if(controlIP == IPAddress(0,0,0,0)){
@@ -139,18 +153,18 @@ CMD getCMD(){
  */
 String readPacket(){
     char packetBuffer[256];  // Incoming packet storage
-    int packetSize = Udp.parsePacket();
+    int packetSize = udp.parsePacket();
     if (packetSize) {
-        lastIP = Udp.remoteIP();
+        lastIP = udp.remoteIP();
         // Serial.printf("Received %d bytes from %d.%d.%d.%d:%d\n",
         //     packetSize,
         //     lastIP[0], lastIP[1], lastIP[2], lastIP[3],
-        //     Udp.remotePort()
+        //     udp.remotePort()
         // );
     }
 
     // Read packet
-    int len = Udp.read(packetBuffer, sizeof(packetBuffer) - 1);
+    int len = udp.read(packetBuffer, sizeof(packetBuffer) - 1);
     if (len > 0) packetBuffer[len] = '\0';
 
     if(len >0){
@@ -162,9 +176,9 @@ String readPacket(){
  * Send the provided data via Ethernet
  */
 void sendPacket(String response){
-    Udp.beginPacket(Udp.remoteIP(), Udp.remotePort());
-    Udp.write(response.c_str());
-    Udp.endPacket();
+    udp.beginPacket(udp.remoteIP(), udp.remotePort());
+    udp.write(response.c_str());
+    udp.endPacket();
 }
 
 void setStatus(String newStatus){

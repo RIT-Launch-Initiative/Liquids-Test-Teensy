@@ -86,7 +86,7 @@ void SolenoidQD::disconnectQD(){
  * Constructor for light tree
  * Only one of these should ever exist
  */
-LightTree::LightTree(int greenNum, int yellowNum, int redNum, int hornNum){
+LightTree::LightTree(int hornNum, int greenNum, int yellowNum, int redNum){
     this->greenNum = greenNum;
     this->yellowNum = yellowNum;
     this->redNum = redNum;
@@ -131,6 +131,7 @@ void LightTree::setNoLights(){
 /**
  * Continually flash red light at a duty cycle of 1 second on 1 second off, until 
  */
+//TODO: set flags and use main loop to change logic for all light and horn continuos functions.
 void LightTree::redLightFlashLoop(){
     while(true){
         if(redLightFlashing){
@@ -162,12 +163,19 @@ void LightTree::setLightRedFlash(bool on){
  */
 void LightTree::shortHorn(){
     Serial.println("HONK HONK BITCH");
+    digitalWrite(this->hornNum, HIGH);
+    delay(500);
+    digitalWrite(this->hornNum, LOW);
+
 }
 /**
  * Activate horn for 10 seconds
  */
 void LightTree::longHorn(){
     Serial.println("HOOOOOONNNKKKKKKK BITCH");
+    digitalWrite(this->hornNum, HIGH);
+    delay(2000);
+    digitalWrite(this->hornNum, LOW);
 }
 
 /**
