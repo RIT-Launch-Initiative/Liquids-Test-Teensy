@@ -32,6 +32,7 @@ bool initialiseEthernet(){
     Ethernet.setLocalIP(teensyIP);
     Ethernet.setSubnetMask(IPAddress(255,255,255,0));
     Ethernet.setGatewayIP(IPAddress(10,10,10,1));//unknown what test setup gateway will be
+    Ethernet.setDHCPEnabled(false);
     udp.begin(localPort);
     controlIP = IPAddress(0, 0, 0, 0);//default control IP
 
@@ -49,6 +50,7 @@ CMD getCMD(String packet){
     if(packet == ""){
         return CMD::NONE;
     }
+    //BEGIN COMMANDS ACCEPTED BY ANY REMOTE USER
     else if(packet == "MARGARITAVILLE"){
         if(controlIP == blankIP){
             controlIP = lastIP;
@@ -75,7 +77,7 @@ CMD getCMD(String packet){
         return CMD::SPECIAL;
     }
     else if(packet == "VERSION"){
-        sendPacket("NITRON GROUNDSTATION 0.9.1");
+        sendPacket("NITRON GROUNDSTATION 0.9.2 COLDFLOW");
         return CMD::SPECIAL;
     }
     else if(packet == "STATUS"){
@@ -86,6 +88,7 @@ CMD getCMD(String packet){
         sendPacket("FAULT ACKNOWLEDGED");
         return CMD::FAULT;
     }
+    //BEGIN COMMANDS ONLY ACCEPTED FROM LOGGED IN USER
     else{
         if(lastIP == controlIP){
             if(packet == "OXDISCONNECT"){
@@ -129,12 +132,41 @@ CMD getCMD(String packet){
                 return CMD::HONK;
             }
             else if(packet == "NEXTSTAGE"){
-                sendPacket("NEXTSTAGE ACKNOWLEDGED");
+                sendPacket("NEXTSTAGE ACKNOWLEDGED, NOT IMPLEMENTED");
                 return CMD::NEXTSTAGE;
             }
             else if(packet == "BACKSTAGE"){
-                sendPacket("BACKSTAGE ACKNOWLEDGED");
+                sendPacket("BACKSTAGE ACKNOWLEDGED, NOT IMPLEMENTED");
                 return CMD::BACKSTAGE;
+            }
+            else if(packet == "LOCKOUT"){
+                sendPacket("LOCKOUT ACKNOWLEDGED, NOT IMPLEMENTED");
+                return CMD::LOCKOUT;
+            }
+            else if(packet == "UNLOCK"){
+                sendPacket("UNLOCK ACKNOWLEDGED, NOT IMPLEMENTED");
+                return CMD::UNLOCK;
+            }
+            else if(packet == "SENDIT"){
+                sendPacket("SENDIT ACKNOWLEDGED, NOT IMPLEMENTED");
+                return CMD::SENDIT;
+            }
+            //temp states for light actuation
+            else if(packet == "REDLIGHT"){
+                sendPacket("REDLIGHT ACKNOWLEDGED");
+                return CMD::REDLIGHT;
+            }
+            else if(packet == "YELLOWLIGHT"){
+                sendPacket("YELLOWLIGHT ACKNOWLEDGED");
+                return CMD::YELLOWLIGHT;
+            }
+            else if(packet == "GREENLIGHT"){
+                sendPacket("GREENLIGHT ACKNOWLEDGED");
+                return CMD::GREENLIGHT;
+            }
+            else if(packet == "NOLIGHT"){
+                sendPacket("NOLIGHT ACKNOWLEDGED");
+                return CMD::NOLIGHT;
             }
         }
         else{
@@ -152,6 +184,7 @@ CMD getCMD(String packet){
  * Read any incoming packet data, process, and return the command
  */
 String readPacket(){
+    Ethernet.loop();//Have to tick ethernet constantly or it gets mad.
     char packetBuffer[256];  // Incoming packet storage
     int packetSize = udp.parsePacket();
     if (packetSize) {

@@ -1,5 +1,7 @@
 #include <Servo.h>
 
+String getActuatorStatus();
+
 class ServoValve{
     private:
         int pinNum, fullyClosed, fullyOpen;
@@ -12,7 +14,6 @@ class ServoValve{
         ~ServoValve();
         void openValve();
         void closeValve();
-        int getStatus();
 };
 
 class SolenoidQD{
@@ -27,6 +28,9 @@ class SolenoidQD{
 class LightTree{
     private:
         int greenNum, yellowNum, redNum, hornNum;
+        int hornOffTime, redLightToggleTime;
+        bool hornOn;
+
         bool redLightFlashing;
         void redLightFlashLoop();
         void setLightStatus(int greenStatus, int yellowStatus, int redStatus);
@@ -40,16 +44,17 @@ class LightTree{
         void setLightRedFlash(bool on);
         void shortHorn();
         void longHorn();
+        void turnOffHorn();
+        void tickLights();
 };
 
 class Ignitor{
     private:
-        int ignitePin, sensePin;
+        int ignitePin, sensePinHigh, sensePinLow;
         int status;
 
     public:
-        Ignitor(int ignitePin, int sensePin);
+        Ignitor(int ignitePin, int sensePinHigh, int sensePinLow);
         void ignite();
-        int getStatus();
+        bool checkContinuity();
 };
-//TODO: get status for all acutators and sensors, to be called in main and sent as a status message

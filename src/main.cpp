@@ -8,10 +8,10 @@ ServoValve servoMainValve(20, 1115, 2140);//main is the big double servo
 SolenoidQD OxQD(8);
 SolenoidQD IPAQD(9);
 LightTree lightTree(10,11,12,13);
-Ignitor ignitor(6,7);
+Ignitor ignitor(6,7, 20);
 
 void setup(){
-    delay(5000);
+    delay(5000); //TODO: CHECK IF THIS STILL NEEDED WITH QNETHERNET
     initialiseEthernet();
     servoOxValve.init();
     servoIPAValve.init();
@@ -23,7 +23,7 @@ void loop(){
     loops++;
     String message = readPacket();
     if(message.length() > 0){
-      sendPacket("Recieved packet with content: " + message);
+        sendPacket("Recieved packet with content: " + message);
 
         CMD command = getCMD(message);
         if(command == CMD::SPECIAL){
@@ -35,31 +35,31 @@ void loop(){
         }
         //quick disconnects
         else if(command == CMD::OXDISCONNECT){
-          OxQD.disconnectQD();
+            OxQD.disconnectQD();
         }
         else if(command == CMD::IPADISCONNECT){
-          IPAQD.disconnectQD();
+            IPAQD.disconnectQD();
         }
         //oxygen controls
         else if(command == CMD::OXOPEN){
-          servoOxValve.openValve();
+            servoOxValve.openValve();
         }
         else if(command == CMD::OXCLOSE){
-          servoOxValve.closeValve();
+            servoOxValve.closeValve();
         }
         //IPA controls
         else if(command == CMD::IPAOPEN){
-          servoIPAValve.openValve();
+            servoIPAValve.openValve();
         }
         else if(command == CMD::IPACLOSE){
-          servoIPAValve.closeValve();
+            servoIPAValve.closeValve();
         }
         //main valve controls
         else if(command == CMD::MAINOPEN){
-          servoMainValve.openValve();
+            servoMainValve.openValve();
         }
         else if(command == CMD::MAINCLOSE){
-          servoMainValve.closeValve();
+            servoMainValve.closeValve();
         }
         //LightTree
         else if(command == CMD::HONK){
@@ -67,28 +67,47 @@ void loop(){
         }
         //stage commands
         else if(command == CMD::FAULT){
-          // lightTree.setLightRedFlash(true);
-          lightTree.shortHorn();
+            // lightTree.setLightRedFlash(true);
+            lightTree.shortHorn();
         }
         else if(command == CMD::NEXTSTAGE){
-            Serial.println("Next stage intiaited");
-            lightTree.setLightGreen();
-            delay(1000);
-            lightTree.setLightYellow();
-            delay(1000);
-            lightTree.setLightRed();
-            delay(1000);
-            lightTree.setNoLights();
+            Serial.println("newstage requested, not implemented");
         }
         else if(command == CMD::BACKSTAGE){
-            Serial.println("previous stage intiaited");
+            Serial.println("previous stage requested, not implemented");
+        }
+        else if(command == CMD::LOCKOUT){
+            Serial.println("command lockout requested, not implemented");
+        }
+        else if(command == CMD::UNLOCK){
+            Serial.println("command unlock requested, not implemented");
+        }
+        //TEMP LIGHT TREE COMMANDS
+        else if(command == CMD::REDLIGHT){
+            lightTree.setLightRed();
+        }
+        else if(command == CMD::YELLOWLIGHT){
+            lightTree.setLightYellow();
+        }
+        else if(command == CMD::GREENLIGHT){
+            lightTree.setLightGreen();
+        }
+        else if(command == CMD::NOLIGHT){
+            lightTree.setNoLights();
+        }
+        else if(command == CMD::HONK){
+            lightTree.longHorn();
         }
         //Ignitor
         else if(command == CMD::IGNITE){
-          ignitor.ignite();
+            ignitor.ignite();
         }
-
-        delay(50);
-        }
+        // else if(command == CMD::SENDIT){
+        //     servoMainValve.openValve();
+        //     //TODO: timing, should probably offload this logic into Actuator
+        //     ignitor.ignite();
+        // }
+      lightTree.tickLights();//Update logic every loop for light and horn actuation
+    }
 }
 //TODO: use main loop to check flags for actuator loop and toggle off without any delays or while true

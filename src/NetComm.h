@@ -18,7 +18,15 @@ enum class CMD{
     IGNITE,
     HONK,
     NEXTSTAGE,
-    BACKSTAGE
+    BACKSTAGE,
+    LOCKOUT,
+    UNLOCK,
+    //temp states
+    REDLIGHT,
+    YELLOWLIGHT,
+    GREENLIGHT,
+    NOLIGHT,
+    SENDIT
 };
 
 bool initialiseEthernet();

@@ -22,6 +22,7 @@ ServoValve::ServoValve(int pinNum, int fullyOpen, int fullyClosed){
 void ServoValve::init(){
     this->setServoPosition(this->fullyClosed);
     this->servo.attach(this->pinNum);
+    this->setServoPosition(this->fullyClosed);//TODO: VERIFY WHICH IS PROPER ORDER.
 }
 
 /**
@@ -44,7 +45,6 @@ void ServoValve::setServoPosition(int position){
     this->servo.writeMicroseconds(position);
     Serial.println("Position reads as: ");
     Serial.println(this->servo.readMicroseconds());
-    //delay(1500);
 }
 
 /**
@@ -61,10 +61,6 @@ void ServoValve::openValve(){
     this->setServoPosition(this->fullyClosed);
  }
 
- int ServoValve::getStatus(){
-    return this->servo.readMicroseconds();
- }
-
  /**
   * Constructor for SolenoidQD object
   */
@@ -78,7 +74,7 @@ SolenoidQD::SolenoidQD(int pinNum){
  */
 void SolenoidQD::disconnectQD(){
     digitalWrite(this->pinNum, HIGH);
-    delay(500);
+    delay(500);//TODO: determine if delay is needed or better to handle in main loop
     digitalWrite(this->pinNum, LOW);
 }
 
@@ -128,65 +124,75 @@ void LightTree::setLightRed(){
 void LightTree::setNoLights(){
     this->setLightStatus(LOW, LOW, LOW);
 }
-/**
- * Continually flash red light at a duty cycle of 1 second on 1 second off, until 
- */
-//TODO: set flags and use main loop to change logic for all light and horn continuos functions.
-void LightTree::redLightFlashLoop(){
-    while(true){
-        if(redLightFlashing){
-            setLightRed();
-            Serial.println("red light on");
-            delay(1000);
-            setNoLights();
-            Serial.println("red light off");
-            delay(1000);
-        }
-        else{
-            Serial.println("exiting red light flash sequence");
-            return;
-        }
-    }
-}
+
 /**
  * Flash the red light at 1 second intervals, all other lights off
  */
 void LightTree::setLightRedFlash(bool on){
     this->redLightFlashing = on;
-    if(on){
-        // threads.addThread(this->redLightFlashLoop);
+    if(this->redLightFlashing){
+        this->setLightRed();
+        this->redLightToggleTime = millis()+2000;
         Serial.println("red light flash enabled");
     }
+    //TODO: do we need an else case or will lightTtree tick handle this?
 }
 /**
- * Activate horn for 2 seconds
+ * Activate horn for 0.5 seconds
  */
 void LightTree::shortHorn(){
     Serial.println("HONK HONK BITCH");
     digitalWrite(this->hornNum, HIGH);
-    delay(500);
-    digitalWrite(this->hornNum, LOW);
+    hornOn = true;
+    hornOffTime = millis()+500;
 
 }
 /**
- * Activate horn for 10 seconds
+ * Activate horn for 5 seconds
  */
 void LightTree::longHorn(){
     Serial.println("HOOOOOONNNKKKKKKK BITCH");
     digitalWrite(this->hornNum, HIGH);
-    delay(2000);
+    hornOn=true;
+    hornOffTime = millis()+5000;
+}
+/**
+ * Activate horn for 10 seconds
+ */
+void LightTree::turnOffHorn(){
     digitalWrite(this->hornNum, LOW);
+    hornOn=false;
+}
+/**
+ * tick the status of lights and horn
+ */
+void LightTree::tickLights(){
+    int curTime = millis();
+    if(hornOn){
+        if(hornOffTime < curTime){
+            this->turnOffHorn();
+        }
+    }
+    if(redLightFlashing){
+        if(redLightToggleTime < curTime){
+
+            //toggle red light
+            Serial.println("toggle red light high/low");
+        }
+    }
 }
 
 /**
  * Constructor for Ignitor object
  */
-Ignitor::Ignitor(int ignitePin, int sensePin){
+Ignitor::Ignitor(int ignitePin, int sensePinHigh, int sensePinLow){
     this->ignitePin = ignitePin;
-    this->sensePin = sensePin;
+    this->sensePinHigh = sensePinHigh;
+    this->sensePinLow = sensePinLow;
     this->status = 1;
     pinMode(this->ignitePin, OUTPUT);
-    pinMode(this->sensePin, INPUT);
+    pinMode(this->sensePinHigh, INPUT);
+    pinMode(this->sensePinLow, INPUT);
 }
 /**
  * Send output high for one second to ignite the ignitor
@@ -195,12 +201,24 @@ void Ignitor::ignite(){
     Serial.println("light that bitch up");
     digitalWrite(this->ignitePin, HIGH);
     //TODO: read sense pin for signal to go low, trigger any faults as needed
-    delay(1000);
+    delay(1000);//TODO: determine best case to handle ignite function with continuity check. likely unavoidable delay but ideally would be very short.
     digitalWrite(this->ignitePin, LOW);
     this->status=100;
     Serial.println("snuff that bitch out");
 }
 
-int Ignitor::getStatus(){
-    return this->status;
+/**
+ * Check continuity between pinsSenseHigh and pinSenseLow to check continuity of ignitor
+ * return true if there is continuity
+ */
+bool Ignitor::checkContinuity(){
+    //TODO: check continuity between pinSenseHigh and pinSenseLow , return true if there is continuity
+    return false;
+}
+
+/**
+ * return a json formatted string of all actuator statuses
+ */
+String getActuatorStatus(){
+    return "{\"MainServo\": \"status\", \"OxServo\": \"status\", \"IPAServo\": \"status\"}";
 }
