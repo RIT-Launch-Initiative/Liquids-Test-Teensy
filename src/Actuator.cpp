@@ -15,14 +15,29 @@ ServoValve::ServoValve(int pinNum, int fullyOpen, int fullyClosed){
     Serial.println(pinNum);
     Serial.println(this->fullyOpen);
     Serial.println(this->fullyClosed);
+    this->setServoPosition(this->fullyClosed);
+    Serial.print("position in constructor: ");
+    Serial.println(this->servo.readMicroseconds());
 }
 /**
  * Initialise servo valve assembly. Sets to fully closed position then attaches to pin.
  */
 void ServoValve::init(){
-    this->setServoPosition(this->fullyClosed);
+    // this->setServoPosition(this->fullyClosed);
+
+
+    Serial.print("values: ");
+    Serial.println(pinNum);
+    Serial.println(this->fullyOpen);
+    Serial.println(this->fullyClosed);
+
+    
+    Serial.print("position before attach: ");
+    Serial.println(this->servo.readMicroseconds());
     this->servo.attach(this->pinNum);
-    this->setServoPosition(this->fullyClosed);//TODO: VERIFY WHICH IS PROPER ORDER.
+    Serial.print("position after attach: ");
+    Serial.println(this->servo.readMicroseconds());
+    // this->setServoPosition(this->fullyClosed);//TODO: VERIFY WHICH IS PROPER ORDER.
 }
 
 /**
@@ -201,10 +216,21 @@ void Ignitor::ignite(){
     Serial.println("light that bitch up");
     digitalWrite(this->ignitePin, HIGH);
     //TODO: read sense pin for signal to go low, trigger any faults as needed
-    delay(1000);//TODO: determine best case to handle ignite function with continuity check. likely unavoidable delay but ideally would be very short.
+    delay(this->igDelayMilliseconds);//TODO: determine best case to handle ignite function with continuity check. likely unavoidable delay but ideally would be very short.
     digitalWrite(this->ignitePin, LOW);
     this->status=100;
     Serial.println("snuff that bitch out");
+}
+bool Ignitor::setIgDelayTime(int delayMillisReq){
+    if(delayMillisReq > 500){
+        this->igDelayMilliseconds = delayMillisReq;
+        Serial.println("updated ignitor timing delay to " + String(this->igDelayMilliseconds) + " milliseconds");
+        return true;
+    }
+    else{
+        Serial.println("Rejected a timing change request of "+ String(this->igDelayMilliseconds) +" milliseconds");
+        return false;
+    }
 }
 
 /**

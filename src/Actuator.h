@@ -52,9 +52,11 @@ class Ignitor{
     private:
         int ignitePin, sensePinHigh, sensePinLow;
         int status;
+        int igDelayMilliseconds = 1000;
 
     public:
         Ignitor(int ignitePin, int sensePinHigh, int sensePinLow);
         void ignite();
         bool checkContinuity();
+        bool setIgDelayTime(int delayMillis);
 };

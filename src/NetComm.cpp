@@ -16,6 +16,11 @@ unsigned int localPort = 8888;
 EthernetUDP udp;
 String currentStatus = "";
 
+//field adjustable delay timing
+int igDelayMillisRequested = 1000;
+int getIgDelayMillisRequested(){
+    return igDelayMillisRequested;
+}
 
 
 /**
@@ -42,6 +47,29 @@ bool initialiseEthernet(){
     // Serial.println(Ethernet.macAddress());
     Serial.printf("UDP listening on port %d\n", localPort);
     return true;
+}
+
+/**
+ * Function to extract an integer value from a command matching the format "COMMAND 012345" and return as an int.
+ * returns -1 if no valid int can be extracted from command
+ */
+int extractIntFromString(const String& str) {
+    int pos = -1;
+    
+    // Find the first numeric digit
+    for (unsigned int i = 0; i < str.length(); i++) {
+        if (isDigit(str.charAt(i))) {
+            pos = i;
+            break;
+        }
+    }
+    
+    // If a digit was found, convert the substring to an integer
+    if (pos != -1) {
+        return str.substring(pos).toInt();
+    }
+    
+    return -1; // Return a default value or error code if no number is found
 }
 
 CMD getCMD(String packet){
@@ -77,7 +105,7 @@ CMD getCMD(String packet){
         return CMD::SPECIAL;
     }
     else if(packet == "VERSION"){
-        sendPacket("NITRON GROUNDSTATION 0.9.2 COLDFLOW");
+        sendPacket("NITRON GROUNDSTATION 0.9.5 HOTFIRE2");
         return CMD::SPECIAL;
     }
     else if(packet == "STATUS"){
@@ -167,6 +195,17 @@ CMD getCMD(String packet){
             else if(packet == "NOLIGHT"){
                 sendPacket("NOLIGHT ACKNOWLEDGED");
                 return CMD::NOLIGHT;
+            }
+            else if (packet.startsWith("DELAYIG")){
+                sendPacket("DELAYIG ACKNOWLEDGED");
+                int delayReq = extractIntFromString(packet);
+                if(delayReq > 500){
+                    igDelayMillisRequested = delayReq;
+                    return CMD::DELAYIG;
+                }
+                else{
+                    sendPacket("DELAYIG REJECTED");
+                }
             }
         }
         else{
