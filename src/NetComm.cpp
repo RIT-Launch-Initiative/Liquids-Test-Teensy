@@ -17,7 +17,7 @@ EthernetUDP udp;
 String currentStatus = "";
 
 //field adjustable delay timing
-int igDelayMillisRequested = 1000;
+int igDelayMillisRequested = 0;
 int getIgDelayMillisRequested(){
     return igDelayMillisRequested;
 }
@@ -105,7 +105,7 @@ CMD getCMD(String packet){
         return CMD::SPECIAL;
     }
     else if(packet == "VERSION"){
-        sendPacket("NITRON GROUNDSTATION 0.9.5 HOTFIRE2");
+        sendPacket("NITRON GROUNDSTATION 0.9.7 HOTFIRE2");
         return CMD::SPECIAL;
     }
     else if(packet == "STATUS"){
@@ -199,7 +199,7 @@ CMD getCMD(String packet){
             else if (packet.startsWith("DELAYIG")){
                 sendPacket("DELAYIG ACKNOWLEDGED");
                 int delayReq = extractIntFromString(packet);
-                if(delayReq > 500){
+                if(delayReq > -1){
                     igDelayMillisRequested = delayReq;
                     return CMD::DELAYIG;
                 }

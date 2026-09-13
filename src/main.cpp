@@ -5,21 +5,37 @@
 ServoValve* servoOxValve; //ox is servo 1
 ServoValve* servoIPAValve;//IPA is servo 2
 ServoValve* servoMainValve;//main is the big double servo
-SolenoidQD OxQD(8);
-SolenoidQD IPAQD(9);
-LightTree lightTree(10,11,12,13);
-Ignitor ignitor(6,7, 22);
+SolenoidQD OxQD(7);
+SolenoidQD IPAQD(8);
+LightTree lightTree(9, 10,11,12);
+Ignitor ignitor(6, 23, 22);
 
 void setup(){
     delay(5000); //TODO: CHECK IF THIS STILL NEEDED WITH QNETHERNET
     initialiseEthernet();
     servoOxValve = new ServoValve(16, 900, 1970);
     servoIPAValve = new ServoValve(18, 1100, 2090);
-    servoMainValve = new ServoValve(20, 1115, 2140);
+    servoMainValve = new ServoValve(20, 1050, 2100);//replacing main, old positions 1115 and 2140
     servoOxValve->init();
     servoIPAValve->init();
     servoMainValve->init();
 
+
+    // //TODO REMOVE BEFORE COMPILING
+    // while(true){
+    // //     while (Serial.available() == 0) {
+    // //         // You can add a small delay to avoid busy-waiting
+    // //         delay(10);
+    // //     }
+    //     // int servoPos = Serial.parseInt();
+    //     // Serial.print("entered value: ");
+    //     // Serial.println(servoPos);
+    //     servoMainValve->setServoPosition(2100);
+    //     delay(3000);
+    //     servoMainValve->setServoPosition(1050);
+    //     delay(3000);
+    //     // Serial.println("Setting valve position");
+    // }
 }
 
 int loops = 0;
@@ -105,6 +121,8 @@ void loop(){
         //Ignitor
         else if(command == CMD::IGNITE){
             ignitor.ignite();
+            delay(getIgDelayMillisRequested());//delay predtermined time
+            servoMainValve->openValve();
         }
         else if(command == CMD::DELAYIG){
             if(ignitor.setIgDelayTime(getIgDelayMillisRequested())){

@@ -37,7 +37,7 @@ void ServoValve::init(){
     this->servo.attach(this->pinNum);
     Serial.print("position after attach: ");
     Serial.println(this->servo.readMicroseconds());
-    // this->setServoPosition(this->fullyClosed);//TODO: VERIFY WHICH IS PROPER ORDER.
+    this->setServoPosition(this->fullyClosed);
 }
 
 /**
@@ -89,7 +89,7 @@ SolenoidQD::SolenoidQD(int pinNum){
  */
 void SolenoidQD::disconnectQD(){
     digitalWrite(this->pinNum, HIGH);
-    delay(500);//TODO: determine if delay is needed or better to handle in main loop
+    delay(15000);//TODO: determine if delay is needed or better to handle in main loop
     digitalWrite(this->pinNum, LOW);
 }
 
@@ -216,13 +216,14 @@ void Ignitor::ignite(){
     Serial.println("light that bitch up");
     digitalWrite(this->ignitePin, HIGH);
     //TODO: read sense pin for signal to go low, trigger any faults as needed
-    delay(this->igDelayMilliseconds);//TODO: determine best case to handle ignite function with continuity check. likely unavoidable delay but ideally would be very short.
+    delay(500);
+    //delay(this->igDelayMilliseconds);//TODO: determine best case to handle ignite function with continuity check. likely unavoidable delay but ideally would be very short.
     digitalWrite(this->ignitePin, LOW);
     this->status=100;
     Serial.println("snuff that bitch out");
 }
 bool Ignitor::setIgDelayTime(int delayMillisReq){
-    if(delayMillisReq > 500){
+    if(delayMillisReq > -1){
         this->igDelayMilliseconds = delayMillisReq;
         Serial.println("updated ignitor timing delay to " + String(this->igDelayMilliseconds) + " milliseconds");
         return true;
