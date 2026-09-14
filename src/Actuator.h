@@ -6,7 +6,6 @@ class ServoValve{
     private:
         int pinNum, fullyClosed, fullyOpen;
         Servo servo;
-        void setServoPosition(int position);
 
     public:
         ServoValve(int pinNum, int fullyOpen, int fullyClosed);
@@ -14,15 +13,19 @@ class ServoValve{
         ~ServoValve();
         void openValve();
         void closeValve();
+        void setServoPosition(int position);
 };
 
 class SolenoidQD{
     private:
         int pinNum;
+        bool isActive;
+        int solenoidOffTime;
 
     public:
         SolenoidQD(int pinNum);
         void disconnectQD();
+        void tickSolenoid();
 };
 
 class LightTree{
@@ -52,9 +55,14 @@ class Ignitor{
     private:
         int ignitePin, sensePinHigh, sensePinLow;
         int status;
+        int igDelayMilliseconds = 0;
+        bool isActive;
+        int ignitorOffTime;
 
     public:
         Ignitor(int ignitePin, int sensePinHigh, int sensePinLow);
         void ignite();
         bool checkContinuity();
+        bool setIgDelayTime(int delayMillis);
+        void tickIgnitor();
 };

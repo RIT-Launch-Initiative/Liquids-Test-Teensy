@@ -2,28 +2,35 @@
 #include "Actuator.h"
 #include "NetComm.h"
 
-ServoValve servoOxValve(16, 900, 1970); //ox is servo 1
-ServoValve servoIPAValve(18, 1100, 2090);//IPA is servo 2
-ServoValve servoMainValve(20, 1115, 2140);//main is the big double servo
-SolenoidQD OxQD(8);
-SolenoidQD IPAQD(9);
-LightTree lightTree(10,11,12,13);
-Ignitor ignitor(6,7, 20);
+ServoValve* servoOxValve; //ox is servo 1
+ServoValve* servoIPAValve;//IPA is servo 2
+ServoValve* servoMainValve;//main is the big double servo
+SolenoidQD OxQD(7);
+SolenoidQD IPAQD(8);
+LightTree lightTree(9, 10,11,12);
+Ignitor ignitor(6, 23, 22);
+
+bool IGNITION_SEQUENCE_ACTIVE = false;
+uint32_t MAIN_VALVE_OPEN_TIME;
 
 void setup(){
     delay(5000); //TODO: CHECK IF THIS STILL NEEDED WITH QNETHERNET
     initialiseEthernet();
-    servoOxValve.init();
-    servoIPAValve.init();
-    servoMainValve.init();
+    servoOxValve = new ServoValve(16, 900, 1970);
+    servoIPAValve = new ServoValve(18, 1100, 2090);
+    servoMainValve = new ServoValve(20, 1050, 2100);//replacing main, old positions 1115 and 2140
+    servoOxValve->init();
+    servoIPAValve->init();
+    servoMainValve->init();
+    Serial.println("Nitron controls software v0.9.7 hotfire 2");
 }
 
-int loops = 0;
+//int loops = 0;
 void loop(){
-    loops++;
+    //loops++;
     String message = readPacket();
     if(message.length() > 0){
-        sendPacket("Recieved packet with content: " + message);
+        //sendPacket("Recieved packet with content: " + message);
 
         CMD command = getCMD(message);
         if(command == CMD::SPECIAL){
@@ -42,24 +49,24 @@ void loop(){
         }
         //oxygen controls
         else if(command == CMD::OXOPEN){
-            servoOxValve.openValve();
+            servoOxValve->openValve();
         }
         else if(command == CMD::OXCLOSE){
-            servoOxValve.closeValve();
+            servoOxValve->closeValve();
         }
         //IPA controls
         else if(command == CMD::IPAOPEN){
-            servoIPAValve.openValve();
+            servoIPAValve->openValve();
         }
         else if(command == CMD::IPACLOSE){
-            servoIPAValve.closeValve();
+            servoIPAValve->closeValve();
         }
         //main valve controls
         else if(command == CMD::MAINOPEN){
-            servoMainValve.openValve();
+            servoMainValve->openValve();
         }
         else if(command == CMD::MAINCLOSE){
-            servoMainValve.closeValve();
+            servoMainValve->closeValve();
         }
         //LightTree
         else if(command == CMD::HONK){
@@ -100,14 +107,30 @@ void loop(){
         }
         //Ignitor
         else if(command == CMD::IGNITE){
-            ignitor.ignite();
+            IGNITION_SEQUENCE_ACTIVE = true;//set sequence active to allow tick function to continue ignition process
+            ignitor.ignite();//set e-match ignition output high. output will be set low in tick function by config item for ignitor hold duration
+            MAIN_VALVE_OPEN_TIME = millis() + getIgDelayMillisRequested();//set time for valve to open in tick function, no correlation with ignitor hold duration
         }
-        // else if(command == CMD::SENDIT){
-        //     servoMainValve.openValve();
-        //     //TODO: timing, should probably offload this logic into Actuator
-        //     ignitor.ignite();
-        // }
-      lightTree.tickLights();//Update logic every loop for light and horn actuation
+        else if(command == CMD::DELAYIG){
+            if(ignitor.setIgDelayTime(getIgDelayMillisRequested())){
+                sendPacket("DELAYIG UPDATED");
+            }
+            else{
+                sendPacket("DELAYIG REJECTED");
+            }
+        }
+    }
+    //Serial.println("loop active");
+    lightTree.tickLights();//Update logic every loop for light and horn actuation
+    ignitor.tickIgnitor();
+    OxQD.tickSolenoid();
+    IPAQD.tickSolenoid();
+
+    //tick logic for non-blocking ignitor hold and main valve delay control. after testing this should be refactored to a function
+    if(IGNITION_SEQUENCE_ACTIVE){//only proceed with tick logic if ignition is active
+        if(MAIN_VALVE_OPEN_TIME < millis()){//main valve scheduled open time has passed
+            servoMainValve->openValve();//open valve
+            IGNITION_SEQUENCE_ACTIVE = false;//de-activate automated ignition sequence
+        }
     }
 }
-//TODO: use main loop to check flags for actuator loop and toggle off without any delays or while true

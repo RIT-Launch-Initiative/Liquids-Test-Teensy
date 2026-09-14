@@ -26,11 +26,14 @@ enum class CMD{
     YELLOWLIGHT,
     GREENLIGHT,
     NOLIGHT,
-    SENDIT
+    SENDIT,
+    DELAYIG
 };
 
 bool initialiseEthernet();
 void setStatus(String newStatus);
+int extractIntFromString(const std::string& str);
+int getIgDelayMillisRequested();
 
 CMD getCMD(String packet);
 String readPacket();
