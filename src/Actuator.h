@@ -55,7 +55,7 @@ class Ignitor{
     private:
         int ignitePin, sensePinHigh, sensePinLow;
         int status;
-        int igDelayMilliseconds = 1000;
+        int igDelayMilliseconds = 0;
         bool isActive;
         int ignitorOffTime;
 

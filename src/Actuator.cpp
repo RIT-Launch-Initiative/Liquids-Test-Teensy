@@ -2,51 +2,36 @@
 #include "Actuator.h"
 // #include <TeensyThreads.h>
 
+static const int IGNITOR_HOLD_TIME = 500;
+static const int QD_SOLENOID_HOLD_TIME = 15000;
+//TODO: check types for recently added busy-loop timing blocks
+
 /**
  * Constructor for servo valve object
  */
 ServoValve::ServoValve(int pinNum, int fullyOpen, int fullyClosed){
-    Serial.print("servo created for pin number: ");
-    Serial.println(pinNum);
     this->pinNum = pinNum;
     this->fullyOpen = fullyOpen;
     this->fullyClosed = fullyClosed;
-    Serial.print("values: ");
-    Serial.println(pinNum);
-    Serial.println(this->fullyOpen);
-    Serial.println(this->fullyClosed);
-    this->setServoPosition(this->fullyClosed);
-    Serial.print("position in constructor: ");
-    Serial.println(this->servo.readMicroseconds());
+    this->setServoPosition(this->fullyClosed);//this is reduntant logic between constructor and init() function. working around Teensyduino startup issue, need further testing to determine proper setup sequence
 }
 /**
  * Initialise servo valve assembly. Sets to fully closed position then attaches to pin.
  */
 void ServoValve::init(){
-    // this->setServoPosition(this->fullyClosed);
-
-
-    Serial.print("values: ");
-    Serial.println(pinNum);
-    Serial.println(this->fullyOpen);
-    Serial.println(this->fullyClosed);
-
-    
-    Serial.print("position before attach: ");
-    Serial.println(this->servo.readMicroseconds());
     this->servo.attach(this->pinNum);
-    Serial.print("position after attach: ");
-    Serial.println(this->servo.readMicroseconds());
     this->setServoPosition(this->fullyClosed);
+    //Teensyduino servo library initialises servo position to 1500 microseconds (partially open) upon attaching, and seemingly cannot be changed through config
+    //empirical testing shows that attaching and then immediately setting to fully closed position does not cause any unexpected behavior
 }
 
 /**
  * Deconstructor for servo valve object
  */
 ServoValve::~ServoValve(){
-    Serial.print("servo for pin ");
-    Serial.print(this->pinNum);
-    Serial.println(" detached and deconstucted");
+    // Serial.print("servo for pin ");
+    // Serial.print(this->pinNum);
+    // Serial.println(" detached and deconstucted");
     this->servo.detach();
 }
 
@@ -54,12 +39,7 @@ ServoValve::~ServoValve(){
  * Set position of servo valve to specified position in microseconds
  */
 void ServoValve::setServoPosition(int position){
-    Serial.print("writing position value: ");
-    Serial.println(position);
-    Serial.println(this->servo.readMicroseconds());
     this->servo.writeMicroseconds(position);
-    Serial.println("Position reads as: ");
-    Serial.println(this->servo.readMicroseconds());
 }
 
 /**
@@ -81,16 +61,30 @@ void ServoValve::openValve(){
   */
 SolenoidQD::SolenoidQD(int pinNum){
     this->pinNum = pinNum;
+    this->isActive = false;
     pinMode(pinNum, OUTPUT);
 }
 
 /**
  * Activate the pin for the associate SolenoidQD
+ * this is a non-blocking sequence, so output will remain high after function is exited and will be turned off by tickSolenoid() function
  */
 void SolenoidQD::disconnectQD(){
     digitalWrite(this->pinNum, HIGH);
-    delay(15000);//TODO: determine if delay is needed or better to handle in main loop
-    digitalWrite(this->pinNum, LOW);
+    this->isActive = true;
+    solenoidOffTime = millis() + QD_SOLENOID_HOLD_TIME;//set timer for current time + length of hold time
+}
+
+/**
+ * called periodically in main loop to check active status and off time, and reset status to low as needed
+ */
+void SolenoidQD::tickSolenoid(){
+    if(this->isActive){
+        if(this->solenoidOffTime < millis()){
+            digitalWrite(this->pinNum, LOW);
+            this->isActive = false;
+        }
+    }
 }
 
 /**
@@ -156,7 +150,6 @@ void LightTree::setLightRedFlash(bool on){
  * Activate horn for 0.5 seconds
  */
 void LightTree::shortHorn(){
-    Serial.println("HONK HONK BITCH");
     digitalWrite(this->hornNum, HIGH);
     hornOn = true;
     hornOffTime = millis()+500;
@@ -166,7 +159,6 @@ void LightTree::shortHorn(){
  * Activate horn for 5 seconds
  */
 void LightTree::longHorn(){
-    Serial.println("HOOOOOONNNKKKKKKK BITCH");
     digitalWrite(this->hornNum, HIGH);
     hornOn=true;
     hornOffTime = millis()+5000;
@@ -205,23 +197,36 @@ Ignitor::Ignitor(int ignitePin, int sensePinHigh, int sensePinLow){
     this->sensePinHigh = sensePinHigh;
     this->sensePinLow = sensePinLow;
     this->status = 1;
+    this->isActive = false;
     pinMode(this->ignitePin, OUTPUT);
     pinMode(this->sensePinHigh, INPUT);
     pinMode(this->sensePinLow, INPUT);
 }
 /**
  * Send output high for one second to ignite the ignitor
+ * this is a non-blocking function, output will remain high after function is exited and will be set low by tickIgnitor() function
  */
 void Ignitor::ignite(){
-    Serial.println("light that bitch up");
     digitalWrite(this->ignitePin, HIGH);
-    //TODO: read sense pin for signal to go low, trigger any faults as needed
-    delay(500);
-    //delay(this->igDelayMilliseconds);//TODO: determine best case to handle ignite function with continuity check. likely unavoidable delay but ideally would be very short.
-    digitalWrite(this->ignitePin, LOW);
-    this->status=100;
-    Serial.println("snuff that bitch out");
+    this->isActive = true;
+    this->ignitorOffTime = millis() + IGNITOR_HOLD_TIME;//set off time to current + length of hold time
 }
+
+/**
+ * called periodically in main loop to check active status and off time, and reset status to low as needed
+ */
+void Ignitor::tickIgnitor(){
+    if(this->isActive){
+        if(this->ignitorOffTime < millis()){
+            digitalWrite(this->ignitePin, LOW);
+            this->isActive = false;
+        }
+    }
+}
+
+/**
+ * function to update the value of the delay time for ignitor. this function is un-used, and will be repurposed later to adjust ignitor hold time
+ */
 bool Ignitor::setIgDelayTime(int delayMillisReq){
     if(delayMillisReq > -1){
         this->igDelayMilliseconds = delayMillisReq;
@@ -237,6 +242,7 @@ bool Ignitor::setIgDelayTime(int delayMillisReq){
 /**
  * Check continuity between pinsSenseHigh and pinSenseLow to check continuity of ignitor
  * return true if there is continuity
+ * this function is unused and will be updated when procedure for checking continuity is finalized
  */
 bool Ignitor::checkContinuity(){
     //TODO: check continuity between pinSenseHigh and pinSenseLow , return true if there is continuity
